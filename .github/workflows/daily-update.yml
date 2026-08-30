@@ -12,22 +12,28 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update daily stats
+      - name: Update stats
         run: |
-          echo "{
-            \"last_updated\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-            \"issues_open\": $(curl -s https://api.github.com/repos/recyparcsarl/the-wisemen | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"open_issues_count\"])'),
-            \"stars\": $(curl -s https://api.github.com/repos/recyparcsarl/the-wisemen | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"stargazers_count\"])'),
-            \"watchers\": $(curl -s https://api.github.com/repos/recyparcsarl/the-wisemen | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"watchers_count\"])')
-          }" > stats.json
-
-      - name: Commit stats
-        run: |
+          curl -s https://api.github.com/repos/recyparcsarl/the-wisemen > repo_data.json
+          python3 -c "
+          import json, datetime
+          with open('repo_data.json') as f:
+              data = json.load(f)
+          stats = {
+              'last_updated': datetime.datetime.utcnow().isoformat() + 'Z',
+              'issues_open': data.get('open_issues_count', 0),
+              'stars': data.get('stargazers_count', 0),
+              'watchers': data.get('watchers_count', 0)
+          }
+          with open('stats.json', 'w') as f:
+              json.dump(stats, f, indent=2)
+          "
           git config user.name "WiseMen Bot"
           git config user.email "recyparcsarl@gmail.com"
           git add stats.json
-          git diff --staged --quiet || git commit -m "📊 Daily W-M stats update $(date -u +%Y-%m-%d)"
+          git diff --staged --quiet || git commit -m "📊 Daily W-M stats $(date -u +%Y-%m-%d)"
           git push
