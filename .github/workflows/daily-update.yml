@@ -1,0 +1,30 @@
+name: W-M Daily Update
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Every day at 8am UTC (9am Morocco)
+  workflow_dispatch:       # Also run manually anytime
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Update daily stats
+        run: |
+          echo "{
+            \"last_updated\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+            \"issues_open\": $(curl -s https://api.github.com/repos/recyparcsarl/the-wisemen | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"open_issues_count\"])'),
+            \"stars\": $(curl -s https://api.github.com/repos/recyparcsarl/the-wisemen | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"stargazers_count\"])'),
+            \"watchers\": $(curl -s https://api.github.com/repos/recyparcsarl/the-wisemen | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"watchers_count\"])')
+          }" > stats.json
+
+      - name: Commit stats
+        run: |
+          git config user.name "WiseMen Bot"
+          git config user.email "recyparcsarl@gmail.com"
+          git add stats.json
+          git diff --staged --quiet || git commit -m "📊 Daily W-M stats update $(date -u +%Y-%m-%d)"
+          git push
